@@ -23,6 +23,7 @@ from models.database import generate_assessment_id
 from agents.vision_agent import vision_agent, VisionResult
 from agents.valuation_agent import valuation_agent, ValuationResult
 from agents.decision_agent import decision_agent, DecisionResult
+from agents.sustainability_agent import sustainability_agent, SustainabilityResult
 
 logger = logging.getLogger("ecoloop.orchestrator")
 
@@ -115,11 +116,27 @@ class AssessmentOrchestrator:
         )
 
         # =====================================================================
-        # Step 4: Sustainability Agent (deterministic placeholder)
+        # Step 4: Sustainability Agent (REAL — deterministic scoring framework)
         # =====================================================================
-        logger.info("[ORCHESTRATOR] Step 4: Sustainability Agent (deterministic)...")
-        green_credits, co2_savings = self._compute_sustainability(decision_result.action)
-        logger.info(f"[ORCHESTRATOR] Credits: {green_credits}, CO2: {co2_savings}kg")
+        logger.info("[ORCHESTRATOR] Step 4: Invoking Sustainability Agent...")
+        sustainability_result = sustainability_agent.calculate(
+            action=decision_result.action,
+            condition_grade=vision_result.condition_grade,
+            product_category=request.product_category.value,
+            product_age_months=request.product_age_months,
+            original_price=request.original_price,
+            valuation=valuation_result,
+        )
+        logger.info(
+            f"[ORCHESTRATOR] Sustainability Agent complete: "
+            f"credits={sustainability_result.green_credits}, "
+            f"CO2={sustainability_result.co2_savings_kg}kg"
+        )
+        print(
+            f"[ORCHESTRATOR] SustainabilityResult: credits={sustainability_result.green_credits}, "
+            f"co2={sustainability_result.co2_savings_kg}kg, "
+            f"reasoning_words={len(sustainability_result.reasoning.split())}"
+        )
 
         # =====================================================================
         # Step 5: Buyer Matching Agent (deterministic placeholder)
@@ -144,23 +161,14 @@ class AssessmentOrchestrator:
                 max=valuation_result.resale_max,
                 display=valuation_result.display,
             ),
-            green_credits=green_credits,
-            co2_savings_kg=co2_savings,
+            green_credits=sustainability_result.green_credits,
+            co2_savings_kg=sustainability_result.co2_savings_kg,
             buyer_personas=buyer_personas,
         )
 
     # =========================================================================
     # Placeholder agent logic (to be replaced by real agent modules)
     # =========================================================================
-
-    def _compute_sustainability(
-        self, action: str
-    ) -> tuple[int, float]:
-        """Sustainability Agent placeholder — fixed credit/CO2 values."""
-        CREDITS = {"resell": 10, "refurbish": 15, "donate": 20, "recycle": 5}
-        CO2 = {"resell": 2.5, "refurbish": 1.8, "donate": 1.5, "recycle": 0.8}
-
-        return CREDITS.get(action, 5), CO2.get(action, 0.8)
 
     def _generate_buyer_personas(
         self, action: str, request: AssessmentRequest

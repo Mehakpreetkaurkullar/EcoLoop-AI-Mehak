@@ -225,19 +225,35 @@ async def get_recent_assessments(
             for item in response.get("Items", [])
         ]
     except (BotoCoreError, ClientError):
-        # Fallback: scan for user's assessments if GSI doesn't exist yet
+        # Fallback: scan ALL items then filter in-memory (no GSI available).
+        # This is acceptable at hackathon scale (<1000 items).
+        # For production, create the GSI: user_session_id (HASH) + created_at (RANGE).
         try:
-            response = table.scan(
-                FilterExpression="user_session_id = :uid",
-                ExpressionAttributeValues={":uid": user_session_id},
-                Limit=limit,
-            )
+            # Scan without Limit — DynamoDB Limit applies BEFORE FilterExpression,
+            # which causes items to be missed. We need all items first, then filter.
+            all_items = []
+            scan_kwargs = {
+                "FilterExpression": "user_session_id = :uid",
+                "ExpressionAttributeValues": {":uid": user_session_id},
+            }
 
-            items = sorted(
-                response.get("Items", []),
+            # Paginate through all results (handles >1MB responses)
+            while True:
+                response = table.scan(**scan_kwargs)
+                all_items.extend(response.get("Items", []))
+                # Check for pagination
+                last_key = response.get("LastEvaluatedKey")
+                if last_key:
+                    scan_kwargs["ExclusiveStartKey"] = last_key
+                else:
+                    break
+
+            # Sort by created_at descending (newest first) and take top N
+            all_items.sort(
                 key=lambda x: x.get("created_at", ""),
                 reverse=True,
-            )[:limit]
+            )
+            top_items = all_items[:limit]
 
             return [
                 {
@@ -247,7 +263,7 @@ async def get_recent_assessments(
                     "action_recommendation": item.get("action_recommendation", ""),
                     "created_at": item.get("created_at", ""),
                 }
-                for item in items
+                for item in top_items
             ]
         except (BotoCoreError, ClientError) as e:
             raise HTTPException(

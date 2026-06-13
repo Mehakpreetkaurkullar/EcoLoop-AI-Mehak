@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     dynamodb_usermetrics_table: str = "UserMetrics"
 
     # Bedrock Configuration
-    bedrock_model_id: str = "anthropic.claude-sonnet-4-20250514"
-    bedrock_text_model_id: str = "anthropic.claude-sonnet-4-20250514"
+    bedrock_model_id: str = "us.amazon.nova-pro-v1:0"
+    bedrock_text_model_id: str = "us.amazon.nova-pro-v1:0"
 
     # Application Configuration
     app_env: str = "development"

@@ -7,6 +7,9 @@ venv/
 # Environment variables
 .env
 
+# Temporary test scripts (may contain credentials)
+backend/test_*.py
+
 # VS Code
 .vscode/
 

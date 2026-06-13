@@ -4,11 +4,12 @@ EcoLoop AI - Assessment Orchestrator
 Coordinates the agentic assessment pipeline:
   Vision Agent → Valuation Agent → Decision Agent → Sustainability Agent → Buyer Matching Agent
 
-Vision Agent: REAL (Amazon Nova Pro via Bedrock)
-Valuation Agent: REAL (deterministic depreciation logic)
-Decision Agent: deterministic placeholder
-Sustainability Agent: deterministic placeholder
-Buyer Matching Agent: deterministic placeholder
+All 5 agents are fully implemented:
+  Vision Agent: Amazon Nova Pro via Bedrock (multimodal image analysis)
+  Valuation Agent: Deterministic depreciation logic
+  Decision Agent: Rule-based action selection + Bedrock reasoning
+  Sustainability Agent: Deterministic scoring framework
+  Buyer Matching Agent: Deterministic category-specific persona matching
 """
 
 import logging
@@ -24,6 +25,7 @@ from agents.vision_agent import vision_agent, VisionResult
 from agents.valuation_agent import valuation_agent, ValuationResult
 from agents.decision_agent import decision_agent, DecisionResult
 from agents.sustainability_agent import sustainability_agent, SustainabilityResult
+from agents.buyer_matching_agent import buyer_matching_agent, BuyerMatchingResult
 
 logger = logging.getLogger("ecoloop.orchestrator")
 
@@ -139,10 +141,39 @@ class AssessmentOrchestrator:
         )
 
         # =====================================================================
-        # Step 5: Buyer Matching Agent (deterministic placeholder)
+        # Step 5: Buyer Matching Agent (REAL — deterministic persona matching)
         # =====================================================================
-        logger.info("[ORCHESTRATOR] Step 5: Buyer Matching Agent (deterministic)...")
-        buyer_personas = self._generate_buyer_personas(decision_result.action, request)
+        logger.info("[ORCHESTRATOR] Step 5: Invoking Buyer Matching Agent...")
+        buyer_matching_result = buyer_matching_agent.match(
+            product_category=request.product_category.value,
+            condition_grade=vision_result.condition_grade,
+            valuation=valuation_result,
+            action=decision_result.action,
+            product_age_months=request.product_age_months,
+            original_price=request.original_price,
+        )
+        if buyer_matching_result.skipped:
+            logger.info(f"[ORCHESTRATOR] Buyer Matching skipped: {buyer_matching_result.skip_reason}")
+        else:
+            logger.info(
+                f"[ORCHESTRATOR] Buyer Matching Agent complete: "
+                f"{len(buyer_matching_result.personas)} personas generated"
+            )
+        print(
+            f"[ORCHESTRATOR] BuyerMatchingResult: "
+            f"personas={len(buyer_matching_result.personas)}, "
+            f"skipped={buyer_matching_result.skipped}"
+        )
+
+        # Convert to response schema
+        buyer_personas = [
+            BuyerPersona(
+                label=p.label,
+                description=p.description,
+                relevance_score=p.relevance_score,
+            )
+            for p in buyer_matching_result.personas
+        ]
 
         # =====================================================================
         # Assemble final response
@@ -167,34 +198,8 @@ class AssessmentOrchestrator:
         )
 
     # =========================================================================
-    # Placeholder agent logic (to be replaced by real agent modules)
+    # All agents are now real implementations — no placeholders remain.
     # =========================================================================
-
-    def _generate_buyer_personas(
-        self, action: str, request: AssessmentRequest
-    ) -> list[BuyerPersona]:
-        """Buyer Matching Agent placeholder — only for resell."""
-        if action != "resell":
-            return []
-
-        category = request.product_category.value
-        return [
-            BuyerPersona(
-                label="Budget-Conscious Buyer",
-                description=f"Looking for affordable {category} in good condition",
-                relevance_score=8,
-            ),
-            BuyerPersona(
-                label="Student",
-                description=f"College student seeking discounted {category} for daily use",
-                relevance_score=7,
-            ),
-            BuyerPersona(
-                label="Reseller",
-                description="Small business owner who refurbishes and resells products online",
-                relevance_score=6,
-            ),
-        ]
 
 
 # Module-level singleton

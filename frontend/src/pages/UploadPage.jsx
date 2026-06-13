@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { uploadImage, assessProduct } from '../services/api';
+import { Link, useNavigate } from 'react-router-dom';
+import { uploadImage, assessProduct, getSessionId } from '../services/api';
 
 const CATEGORIES = ['Electronics', 'Clothing', 'Furniture', 'Books', 'Toys', 'Appliances', 'Sports Equipment'];
 
@@ -22,6 +22,9 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [imageKey, setImageKey] = useState(null);
+  const [listingStatus, setListingStatus] = useState(null); // null | 'publishing' | 'success' | 'error'
+  const navigate = useNavigate();
 
   function handleFileChange(e) {
     const f = e.target.files[0];
@@ -34,7 +37,7 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
   }
   function resetForm() {
     setFile(null); setPreview(null); setCategory(''); setAgeMonths(''); setPrice('');
-    setResult(null); setError(null); setShowForm(false);
+    setResult(null); setError(null); setShowForm(false); setImageKey(null); setListingStatus(null);
   }
 
   async function handleSubmit(e) {
@@ -49,11 +52,45 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
     setLoading(true);
     try {
       const uploadRes = await uploadImage(file);
+      setImageKey(uploadRes.image_key);
       const assessment = await assessProduct({ image_key: uploadRes.image_key, product_category: category, product_age_months: Number(ageMonths), original_price: Number(price) });
       setResult(assessment);
       if (onAssessmentComplete) onAssessmentComplete();
     } catch (err) { setError(err.message || 'Something went wrong.'); }
     finally { setLoading(false); }
+  }
+
+  async function handlePublishListing() {
+    if (!result || !imageKey) return;
+    const listingType = result.action_recommendation === 'resell' ? 'resale'
+      : result.action_recommendation === 'refurbish' ? 'refurbished'
+      : 'donation';
+    setListingStatus('publishing');
+    try {
+      const res = await fetch('/api/listings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-session-id': getSessionId() },
+        body: JSON.stringify({
+          assessment_id: result.assessment_id,
+          image_key: imageKey,
+          product_category: category,
+          listing_type: listingType,
+          assessment_snapshot: {
+            condition_grade: result.condition_grade,
+            confidence_score: result.confidence_score,
+            grade_explanation: result.grade_explanation,
+            action_recommendation: result.action_recommendation,
+            action_reasoning: result.action_reasoning,
+            resale_value: result.resale_value,
+            green_credits: result.green_credits,
+            co2_savings_kg: result.co2_savings_kg,
+            buyer_personas: result.buyer_personas || [],
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to publish listing');
+      setListingStatus('success');
+    } catch { setListingStatus('error'); }
   }
 
   // Compute circularity rate from dashData
@@ -219,28 +256,57 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
             <p className="mt-3 text-sm opacity-75">{result.grade_explanation}</p>
           </div>
 
-          {/* Metrics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-              <p className="text-xs font-semibold text-gray-400 uppercase">Recommended Action</p>
-              <p className="text-xl font-bold text-gray-800 capitalize mt-2">
-                {result.action_recommendation === 'resell' && '🏷️ '}{result.action_recommendation === 'refurbish' && '🔧 '}{result.action_recommendation === 'donate' && '🎁 '}{result.action_recommendation === 'recycle' && '♻️ '}{result.action_recommendation}
+          {/* Metrics Row — conditional based on action */}
+          {result.action_recommendation === 'donate' ? (
+            /* DONATE: Show Donation Impact Card instead of pricing */
+            <div className="bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 border border-pink-200 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">❤️</span>
+                <h3 className="text-lg font-bold text-gray-800">Donation Impact</h3>
+                <span className="text-[10px] bg-pink-100 text-pink-700 font-bold px-2 py-0.5 rounded-full ml-auto">Donation Eligible</span>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                This item will be routed through EcoLoop partner NGOs, schools, community organizations, and donation networks to maximize social and environmental impact.
               </p>
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed">{result.action_reasoning}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white/70 rounded-xl p-4 text-center border border-green-100">
+                  <p className="text-2xl font-bold text-green-700">🌱 {result.green_credits}</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Green Credits Earned</p>
+                </div>
+                <div className="bg-white/70 rounded-xl p-4 text-center border border-emerald-100">
+                  <p className="text-2xl font-bold text-emerald-700">🌍 {result.co2_savings_kg} kg</p>
+                  <p className="text-[10px] text-gray-500 mt-1">CO₂ Prevented</p>
+                </div>
+                <div className="bg-white/70 rounded-xl p-4 text-center border border-orange-100">
+                  <p className="text-2xl font-bold text-orange-700">🎁</p>
+                  <p className="text-[10px] text-gray-500 mt-1">Community Benefit</p>
+                </div>
+              </div>
             </div>
-            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-              <p className="text-xs font-semibold text-gray-400 uppercase">Resale Value</p>
-              <p className="text-xl font-bold text-gray-800 mt-2">{result.resale_value.display}</p>
+          ) : (
+            /* RESELL / REFURBISH / RECYCLE: Show standard metrics */
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-semibold text-gray-400 uppercase">Recommended Action</p>
+                <p className="text-xl font-bold text-gray-800 capitalize mt-2">
+                  {result.action_recommendation === 'resell' && '🏷️ '}{result.action_recommendation === 'refurbish' && '🔧 '}{result.action_recommendation === 'recycle' && '♻️ '}{result.action_recommendation}
+                </p>
+                <p className="text-xs text-gray-500 mt-2 leading-relaxed">{result.action_reasoning}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-semibold text-gray-400 uppercase">Resale Value</p>
+                <p className="text-xl font-bold text-gray-800 mt-2">{result.resale_value.display}</p>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-semibold text-green-600 uppercase">Sustainability Impact</p>
+                <p className="text-xl font-bold text-green-800 mt-2">🌱 {result.green_credits} credits</p>
+                <p className="text-sm text-green-600 mt-1">🌍 {result.co2_savings_kg} kg CO₂ saved</p>
+              </div>
             </div>
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-5 shadow-sm">
-              <p className="text-xs font-semibold text-green-600 uppercase">Sustainability Impact</p>
-              <p className="text-xl font-bold text-green-800 mt-2">🌱 {result.green_credits} credits</p>
-              <p className="text-sm text-green-600 mt-1">🌍 {result.co2_savings_kg} kg CO₂ saved</p>
-            </div>
-          </div>
+          )}
 
-          {/* Buyer Personas */}
-          {result.buyer_personas?.length > 0 && (
+          {/* Buyer Personas — only for resell/refurbish */}
+          {result.action_recommendation !== 'donate' && result.buyer_personas?.length > 0 && (
             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">Buyer Personas</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -254,6 +320,90 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Marketplace Listing Section — Resell / Refurbish */}
+          {(result.action_recommendation === 'resell' || result.action_recommendation === 'refurbish') && (
+            <div className="bg-gradient-to-r from-[#0f1b2d] to-[#1a2d47] rounded-2xl p-6 shadow-lg">
+              {listingStatus === 'success' ? (
+                <div className="text-center py-4">
+                  <span className="text-4xl block mb-3">✅</span>
+                  <p className="text-white font-bold text-lg">Item Listed Successfully!</p>
+                  <p className="text-gray-400 text-sm mt-1">Your product is now live on the EcoLoop Marketplace</p>
+                  <div className="flex items-center justify-center gap-3 mt-5">
+                    <button onClick={() => navigate('/marketplace')} className="bg-[#f59e0b] hover:bg-[#d97706] text-[#0f1b2d] font-bold px-5 py-2.5 rounded-xl text-sm transition-all">
+                      View Marketplace
+                    </button>
+                    <button onClick={resetForm} className="bg-white/10 hover:bg-white/20 text-white font-medium px-5 py-2.5 rounded-xl text-sm border border-white/20 transition-all">
+                      Continue Assessing
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-bold">
+                      {result.action_recommendation === 'resell' ? '🏷️ Ready for Resale' : '🔧 Ready for Refurbishment'}
+                    </p>
+                    <p className="text-gray-400 text-xs mt-1">Publish to the EcoLoop Marketplace with one click</p>
+                  </div>
+                  <button
+                    onClick={handlePublishListing}
+                    disabled={listingStatus === 'publishing'}
+                    className="bg-[#f59e0b] hover:bg-[#d97706] text-[#0f1b2d] font-bold px-5 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {listingStatus === 'publishing' ? (
+                      <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Publishing...</>
+                    ) : (
+                      <>{result.action_recommendation === 'resell' ? 'List for Resale' : 'List for Refurbishment'}</>
+                    )}
+                  </button>
+                </div>
+              )}
+              {listingStatus === 'error' && (
+                <p className="text-red-400 text-xs mt-3">Failed to publish. Please try again.</p>
+              )}
+            </div>
+          )}
+
+          {/* Donate Listing Section */}
+          {result.action_recommendation === 'donate' && (
+            <div className="bg-gradient-to-r from-pink-600 to-rose-700 rounded-2xl p-6 shadow-lg">
+              {listingStatus === 'success' ? (
+                <div className="text-center py-4">
+                  <span className="text-4xl block mb-3">❤️</span>
+                  <p className="text-white font-bold text-lg">Donation Listed Successfully!</p>
+                  <p className="text-pink-200 text-sm mt-1">Your item is ready to be matched with community partners</p>
+                  <div className="flex items-center justify-center gap-3 mt-5">
+                    <button onClick={() => navigate('/marketplace')} className="bg-white hover:bg-gray-100 text-pink-700 font-bold px-5 py-2.5 rounded-xl text-sm transition-all">
+                      View Marketplace
+                    </button>
+                    <button onClick={resetForm} className="bg-white/10 hover:bg-white/20 text-white font-medium px-5 py-2.5 rounded-xl text-sm border border-white/20 transition-all">
+                      Continue Assessing
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-bold">❤️ Ready for Donation</p>
+                    <p className="text-pink-200 text-xs mt-1">List for community partners, NGOs, and schools</p>
+                  </div>
+                  <button
+                    onClick={handlePublishListing}
+                    disabled={listingStatus === 'publishing'}
+                    className="bg-white hover:bg-gray-100 text-pink-700 font-bold px-5 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {listingStatus === 'publishing' ? (
+                      <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Publishing...</>
+                    ) : '❤️ Donate Item'}
+                  </button>
+                </div>
+              )}
+              {listingStatus === 'error' && (
+                <p className="text-red-200 text-xs mt-3">Failed to publish. Please try again.</p>
+              )}
             </div>
           )}
         </div>

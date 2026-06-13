@@ -108,3 +108,9 @@ def get_usermetrics_table():
     """Return the DynamoDB UserMetrics table reference."""
     settings = get_settings()
     return get_dynamodb_resource().Table(settings.dynamodb_usermetrics_table)
+
+
+def get_listings_table():
+    """Return the DynamoDB Listings table reference."""
+    settings = get_settings()
+    return get_dynamodb_resource().Table(settings.dynamodb_listings_table)

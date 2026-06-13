@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import { useState, useEffect } from 'react';
 import UploadPage from './pages/UploadPage';
 import DashboardPage from './pages/DashboardPage';
+import MarketplacePage from './pages/MarketplacePage';
 import { getSessionId } from './services/api';
 
 function App() {
@@ -43,6 +44,7 @@ function AppShell() {
           <nav className="hidden md:flex items-center gap-1">
             <HeaderLink to="/" active={location.pathname === '/'}>Home</HeaderLink>
             <HeaderLink to="/?assess=1" active={false}>Assess</HeaderLink>
+            <HeaderLink to="/marketplace" active={location.pathname === '/marketplace'}>Marketplace</HeaderLink>
             <HeaderLink to="/dashboard" active={location.pathname === '/dashboard'}>Dashboard</HeaderLink>
           </nav>
 
@@ -72,6 +74,7 @@ function AppShell() {
         <div className="max-w-7xl mx-auto px-5 py-6">
           <Routes>
             <Route path="/" element={<UploadPage dashData={dashData} onAssessmentComplete={fetchDash} />} />
+            <Route path="/marketplace" element={<MarketplacePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
           </Routes>
         </div>

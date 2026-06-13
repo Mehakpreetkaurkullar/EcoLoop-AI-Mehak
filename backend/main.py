@@ -11,6 +11,7 @@ from config.settings import get_settings
 from routers.upload import router as upload_router
 from routers.assess import router as assess_router
 from routers.dashboard import router as dashboard_router
+from routers.marketplace import router as marketplace_router
 
 settings = get_settings()
 
@@ -33,6 +34,7 @@ app.add_middleware(
 app.include_router(upload_router)
 app.include_router(assess_router)
 app.include_router(dashboard_router)
+app.include_router(marketplace_router)
 
 
 @app.get("/health")

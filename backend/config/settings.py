@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # DynamoDB Configuration
     dynamodb_assessments_table: str = "Assessments"
     dynamodb_usermetrics_table: str = "UserMetrics"
+    dynamodb_listings_table: str = "Listings"
 
     # Bedrock Configuration
     bedrock_model_id: str = "us.amazon.nova-pro-v1:0"

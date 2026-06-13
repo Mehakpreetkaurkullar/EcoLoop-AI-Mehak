@@ -105,26 +105,43 @@ class DecisionAgent:
         original_price: float,
     ) -> str:
         """
-        Deterministic rule-based action selection.
+        Deterministic grade-first action selection.
 
-        Rules (evaluated in priority order):
-        1. resell: Grade A/B AND resale_value > 20% of original
-        2. refurbish: Grade B/C AND resale_value > 5% of original
-        3. donate: Grade C/D AND resale_value > 5% of original
-        4. recycle: Everything else (Grade D, low value, or no significant value)
+        Each grade maps to exactly one decision branch — no overlap, no priority ambiguity.
+
+        Policy:
+          Grade A → resell (Like New always resells)
+          Grade B → resell if value > 30% of original, else refurbish
+          Grade C → refurbish if value > 15% of original, else donate
+          Grade D → donate if value > 5% of original, else recycle
         """
-        threshold_20 = original_price * 0.20
-        threshold_05 = original_price * 0.05
         base_value = valuation.base_value
 
-        if condition_grade in ("A", "B") and base_value > threshold_20:
+        if condition_grade == "A":
             return "resell"
-        elif condition_grade in ("B", "C") and base_value > threshold_05:
-            return "refurbish"
-        elif condition_grade in ("C", "D") and base_value > threshold_05:
-            return "donate"
-        else:
-            return "recycle"
+
+        elif condition_grade == "B":
+            threshold_30 = original_price * 0.30
+            if base_value > threshold_30:
+                return "resell"
+            else:
+                return "refurbish"
+
+        elif condition_grade == "C":
+            threshold_15 = original_price * 0.15
+            if base_value > threshold_15:
+                return "refurbish"
+            else:
+                return "donate"
+
+        elif condition_grade == "D":
+            threshold_05 = original_price * 0.05
+            if base_value > threshold_05:
+                return "donate"
+            else:
+                return "recycle"
+
+        return "recycle"
 
     async def _generate_reasoning(
         self,

@@ -159,7 +159,6 @@ async def update_user_metrics(
             Key={"user_session_id": user_session_id},
             UpdateExpression=(
                 "ADD total_green_credits :credits, "
-                "total_assessments :one, "
                 "total_co2_saved_kg :co2, "
                 "action_counts.#action :one"
             ),

@@ -98,6 +98,21 @@ async def assess_product(
     except Exception as e:
         print(f"[ERROR] Failed to save assessment: {type(e).__name__}: {e}")
 
-    # NO metrics update here — metrics are awarded on listing creation / exchange completion
+    # Increment Products Assessed — exactly once per successful AI pipeline completion
+    # This is independent of what action the user takes afterwards
+    try:
+        from config.aws import get_usermetrics_table
+        from datetime import datetime, timezone
+        table = get_usermetrics_table()
+        table.update_item(
+            Key={"user_session_id": x_session_id},
+            UpdateExpression="SET last_updated = :now ADD total_assessments :one",
+            ExpressionAttributeValues={
+                ":now": datetime.now(timezone.utc).isoformat(),
+                ":one": 1,
+            },
+        )
+    except Exception as e:
+        print(f"[WARN] Failed to increment total_assessments: {e}")
 
     return assessment

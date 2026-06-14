@@ -2,6 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { uploadImage, assessProduct, getSessionId } from '../services/api';
 
+const VALID_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const VALID_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+const VALID_FILE_TYPES = [...VALID_IMAGE_TYPES, ...VALID_VIDEO_TYPES];
+
+function isVideoFile(file) {
+  return VALID_VIDEO_TYPES.includes(file.type);
+}
+
 const CATEGORIES = ['Electronics', 'Clothing', 'Furniture', 'Books', 'Toys', 'Appliances', 'Sports Equipment'];
 
 const GRADE_COLORS = {
@@ -15,6 +23,7 @@ const GRADE_LABELS = { A: 'Like New', B: 'Good', C: 'Fair', D: 'Poor' };
 export default function UploadPage({ dashData, onAssessmentComplete }) {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [isVideo, setIsVideo] = useState(false);
   const [category, setCategory] = useState('');
   const [ageMonths, setAgeMonths] = useState('');
   const [price, setPrice] = useState('');
@@ -32,15 +41,15 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
 
   function handleFileChange(e) {
     const f = e.target.files[0];
-    if (f) { setFile(f); setPreview(URL.createObjectURL(f)); setError(null); }
+    if (f) { setFile(f); setPreview(URL.createObjectURL(f)); setIsVideo(isVideoFile(f)); setError(null); }
   }
   function handleDrop(e) {
     e.preventDefault();
     const f = e.dataTransfer.files[0];
-    if (f) { setFile(f); setPreview(URL.createObjectURL(f)); setError(null); }
+    if (f) { setFile(f); setPreview(URL.createObjectURL(f)); setIsVideo(isVideoFile(f)); setError(null); }
   }
   function resetForm() {
-    setFile(null); setPreview(null); setCategory(''); setAgeMonths(''); setPrice('');
+    setFile(null); setPreview(null); setIsVideo(false); setCategory(''); setAgeMonths(''); setPrice('');
     setResult(null); setError(null); setShowForm(false); setImageKey(null);
     setListingStatus(null); setAltListingStatus(null); setExchangeCategory('');
     setExchangeDesc(''); setShowExchangeModal(false);
@@ -48,13 +57,14 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
 
   async function handleSubmit(e) {
     e.preventDefault(); setError(null); setResult(null);
-    if (!file) return setError('Please select an image file.');
+    if (!file) return setError('Please select an image or video file.');
     if (!category) return setError('Please select a product category.');
     if (!ageMonths || Number(ageMonths) < 0 || Number(ageMonths) > 240) return setError('Product age must be 0-240 months.');
     if (!price || Number(price) <= 0) return setError('Original price must be greater than 0.');
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) return setError('File must be JPEG, PNG, or WebP.');
-    if (file.size > 10 * 1024 * 1024) return setError('File size must be under 10 MB.');
+    if (!VALID_FILE_TYPES.includes(file.type)) return setError('File must be JPEG, PNG, WebP (image) or MP4, MOV, WebM (video).');
+    const maxSize = isVideoFile(file) ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    const maxLabel = isVideoFile(file) ? '50 MB' : '10 MB';
+    if (file.size > maxSize) return setError(`File size must be under ${maxLabel}.`);
     setLoading(true);
     try {
       const uploadRes = await uploadImage(file);
@@ -247,7 +257,7 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
 
           {/* Feature Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <FeatureCard icon="📸" title="Smart Upload" desc="Drag & drop product photos for instant AI analysis" />
+            <FeatureCard icon="📸" title="Smart Upload" desc="Drag & drop product photos or videos for instant AI analysis" />
             <FeatureCard icon="🤖" title="Multi-Agent AI" desc="5 specialized agents collaborate for accurate assessment" />
             <FeatureCard icon="💰" title="Value Estimation" desc="Category-specific depreciation models estimate resale value" />
             <FeatureCard icon="🌱" title="Green Impact" desc="Earn credits, track CO₂ savings, find sustainable outcomes" />
@@ -270,16 +280,31 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
                 onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                 onClick={() => document.getElementById('file-input').click()}
               >
-                {preview ? (
+                {preview && !isVideo && (
                   <img src={preview} alt="Preview" className="max-h-56 mx-auto rounded-lg shadow" />
-                ) : (
+                )}
+                {preview && isVideo && (
+                  <video
+                    src={preview}
+                    className="max-h-56 mx-auto rounded-lg shadow"
+                    controls
+                    muted
+                    playsInline
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
+                {!preview && (
                   <div className="text-gray-400">
                     <svg className="mx-auto h-12 w-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <p className="font-medium text-gray-600">Drop your product image here</p>
-                    <p className="text-sm mt-1">JPEG, PNG, WebP — max 10MB</p>
+                    <p className="font-medium text-gray-600">Drop your product image or video here</p>
+                    <p className="text-sm mt-1">Images: JPEG, PNG, WebP — max 10 MB</p>
+                    <p className="text-sm">Videos: MP4, MOV, WebM — max 50 MB</p>
                   </div>
                 )}
-                <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} className="hidden" />
+                {preview && isVideo && (
+                  <p className="text-xs text-gray-500 mt-2">🎬 3 frames will be extracted for AI analysis</p>
+                )}
+                <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" onChange={handleFileChange} className="hidden" />
               </div>
 
               {/* Fields */}
@@ -304,7 +329,12 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
               {error && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>}
 
               <button type="submit" disabled={loading} className="w-full bg-[#f59e0b] hover:bg-[#d97706] text-[#0f1b2d] font-bold py-3 rounded-xl transition-all disabled:bg-gray-300 disabled:cursor-not-allowed shadow-md">
-                {loading ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Analyzing...</span> : '🌱 Run Assessment'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    {isVideo ? 'Extracting frames & analyzing...' : 'Analyzing...'}
+                  </span>
+                ) : '🌱 Run Assessment'}
               </button>
             </form>
           </div>
@@ -333,6 +363,14 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
             </div>
             <p className="mt-3 text-sm opacity-75">{result.grade_explanation}</p>
           </div>
+
+          {/* Video assessment note */}
+          {result.video_note && (
+            <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
+              <span className="text-base">🎬</span>
+              <p className="text-sm text-blue-700 font-medium">{result.video_note}</p>
+            </div>
+          )}
 
           {/* Metrics Row — conditional based on action */}
           {result.action_recommendation === 'donate' ? (

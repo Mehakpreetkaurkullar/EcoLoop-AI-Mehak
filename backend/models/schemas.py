@@ -169,6 +169,10 @@ class AssessmentResponse(BaseModel):
         default_factory=list,
         description="Buyer personas (only for resell recommendations)",
     )
+    video_note: str | None = Field(
+        default=None,
+        description="Present when assessment was generated from video frames",
+    )
 
 
 # ---------------------------------------------------------------------------

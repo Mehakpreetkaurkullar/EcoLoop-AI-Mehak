@@ -135,10 +135,6 @@ class DecisionAgent:
                 return "donate"
 
         elif condition_grade == "D":
-            threshold_05 = original_price * 0.05
-            if base_value > threshold_05:
-                return "donate"
-            else:
                 return "recycle"
 
         return "recycle"

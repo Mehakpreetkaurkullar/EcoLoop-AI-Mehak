@@ -88,7 +88,7 @@ class ProductMetadata(BaseModel):
     original_price: float = Field(
         ...,
         gt=0,
-        description="Original purchase price in USD (must be > 0)",
+        description="Original purchase price in INR (must be > 0)",
         examples=[599.99],
     )
 
@@ -126,7 +126,7 @@ class AssessmentRequest(BaseModel):
     original_price: float = Field(
         ...,
         gt=0,
-        description="Original purchase price in USD",
+        description="Original purchase price in INR",
         examples=[599.99],
     )
 
@@ -134,9 +134,9 @@ class AssessmentRequest(BaseModel):
 class ResaleValue(BaseModel):
     """Resale value estimation range."""
 
-    min: float = Field(..., description="Minimum estimated resale value in USD")
-    max: float = Field(..., description="Maximum estimated resale value in USD")
-    display: str = Field(..., description="Human-readable price range", examples=["$142 - $192"])
+    min: float = Field(..., description="Minimum estimated resale value in INR")
+    max: float = Field(..., description="Maximum estimated resale value in INR")
+    display: str = Field(..., description="Human-readable price range", examples=["₹142 - ₹192"])
 
 
 class BuyerPersona(BaseModel):

@@ -188,8 +188,8 @@ function ListingCard({ listing, onClick, allListings, onOpenMatch }) {
             <p className="text-sm font-semibold text-indigo-700">🔄 Seeking: {listing.assessment_snapshot?.wanted_category || 'Not specified'}</p>
           ) : (
             <>
-              <p className="text-xl font-bold text-gray-900">${listing.suggested_price?.toFixed(0)}</p>
-              <p className="text-[10px] text-gray-400">Range: ${listing.price_min?.toFixed(0)} - ${listing.price_max?.toFixed(0)}</p>
+              <p className="text-xl font-bold text-gray-900">₹{listing.suggested_price?.toFixed(0)}</p>
+              <p className="text-[10px] text-gray-400">Range: ₹{listing.price_min?.toFixed(0)} - ₹{listing.price_max?.toFixed(0)}</p>
             </>
           )}
         </div>
@@ -344,16 +344,16 @@ function ListingDetailModal({ listing, onClose, interestSent, onInterest, profil
             <p className="text-sm text-gray-700 leading-relaxed">{listing.description}</p>
           </div>
 
-          {/* Price Section — hidden for donations and exchanges */}
-          {listing.listing_type !== 'donation' && listing.listing_type !== 'exchange' ? (
+          {/* Price/Value Section — context-appropriate for each listing type */}
+          {listing.listing_type === 'resale' || listing.listing_type === 'refurbished' ? (
             <div className="flex items-end gap-4 mb-5">
               <div>
                 <p className="text-xs text-gray-400">Suggested Price</p>
-                <p className="text-3xl font-bold text-gray-900">${listing.suggested_price?.toFixed(0)}</p>
+                <p className="text-3xl font-bold text-gray-900">₹{listing.suggested_price?.toFixed(0)}</p>
               </div>
               <div className="pb-1">
                 <p className="text-xs text-gray-400">Price Range</p>
-                <p className="text-sm font-medium text-gray-600">${listing.price_min?.toFixed(0)} — ${listing.price_max?.toFixed(0)}</p>
+                <p className="text-sm font-medium text-gray-600">₹{listing.price_min?.toFixed(0)} — ₹{listing.price_max?.toFixed(0)}</p>
               </div>
             </div>
           ) : listing.listing_type === 'exchange' ? (
@@ -372,6 +372,21 @@ function ListingDetailModal({ listing, onClose, interestSent, onInterest, profil
                 <p className="text-xs text-indigo-600 mt-2 italic">"{snapshot.wanted_description}"</p>
               )}
               <p className="text-[10px] text-indigo-500 mt-2">Match Potential: <span className="font-bold">{getMatchPotential(listing.condition_grade)}</span></p>
+            </div>
+          ) : listing.listing_type === 'recycling' ? (
+            <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-5">
+              <p className="text-sm font-bold text-teal-800">♻️ Recycling Impact</p>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="bg-white/70 rounded-lg p-3 text-center border border-teal-100">
+                  <p className="text-lg font-bold text-teal-900">{getRecoveryPct(listing)}%</p>
+                  <p className="text-[9px] text-teal-600">Material Recovery</p>
+                </div>
+                <div className="bg-white/70 rounded-lg p-3 text-center border border-teal-100">
+                  <p className="text-lg font-bold text-teal-900">🌍 {snapshot.co2_savings_kg || 0} kg</p>
+                  <p className="text-[9px] text-teal-600">CO₂ Saved</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-teal-600 mt-3">{getMaterials(listing.product_category)}</p>
             </div>
           ) : (
             <div className="bg-pink-50 border border-pink-200 rounded-xl p-4 mb-5">
@@ -410,8 +425,8 @@ function ListingDetailModal({ listing, onClose, interestSent, onInterest, profil
             </div>
           )}
 
-          {/* Buyer Personas — hidden for donations */}
-          {listing.listing_type !== 'donation' && personas.length > 0 && (
+          {/* Buyer Personas — only for resale/refurbished */}
+          {listing.listing_type !== 'donation' && listing.listing_type !== 'recycling' && listing.listing_type !== 'exchange' && personas.length > 0 && (
             <div className="mb-5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Recommended For</p>
               <div className="flex flex-wrap gap-2">
@@ -435,8 +450,8 @@ function ListingDetailModal({ listing, onClose, interestSent, onInterest, profil
             <ExchangeMatches listing={listing} allListings={allListings || []} onSelectMatch={onSelectMatch} />
           )}
 
-          {/* Purchase Confidence — only for resale/refurbished (not donations) */}
-          {listing.listing_type !== 'donation' && (
+          {/* Purchase Confidence — only for resale/refurbished (not donations or recycling) */}
+          {listing.listing_type !== 'donation' && listing.listing_type !== 'recycling' && listing.listing_type !== 'exchange' && (
             <PurchaseConfidenceCard listing={listing} snapshot={snapshot} profile={profile} />
           )}
 
@@ -592,7 +607,7 @@ function RecommendedSection({ listings, onSelect, profile }) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-gray-800 truncate">{item.title}</p>
-                <p className="text-xs text-gray-500">{item.listing_type === 'donation' ? '❤️ Free' : `$${item.suggested_price?.toFixed(0)}`}</p>
+                <p className="text-xs text-gray-500">{item.listing_type === 'donation' ? '❤️ Free' : `₹${item.suggested_price?.toFixed(0)}`}</p>
                 <p className="text-[10px] text-[#f59e0b] font-medium mt-0.5">View Details →</p>
               </div>
             </div>

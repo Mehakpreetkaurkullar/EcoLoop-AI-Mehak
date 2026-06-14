@@ -74,8 +74,8 @@ class DecisionAgent:
         """
         logger.info(
             f"Deciding: grade={condition_grade}, confidence={confidence_score}, "
-            f"base_value=${valuation.base_value:.2f}, category={product_category}, "
-            f"age={product_age_months}mo, original_price=${original_price:.2f}"
+            f"base_value=₹{valuation.base_value:.2f}, category={product_category}, "
+            f"age={product_age_months}mo, original_price=₹{original_price:.2f}"
         )
 
         # Step 1: Rule-based action selection
@@ -189,7 +189,7 @@ class DecisionAgent:
             f"Product details:\n"
             f"- Category: {product_category}\n"
             f"- Age: {product_age_months} months\n"
-            f"- Original price: ${original_price:.2f}\n"
+            f"- Original price: ₹{original_price:.2f}\n"
             f"- Condition grade: {condition_grade} (confidence: {confidence_score}%)\n"
             f"- Estimated resale value: {valuation.display}\n"
             f"- Has significant resale value: {valuation.has_significant_value}\n\n"

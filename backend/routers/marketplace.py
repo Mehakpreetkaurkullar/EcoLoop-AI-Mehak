@@ -15,6 +15,7 @@ from services.marketplace_service import (
     generate_listing_title,
     generate_listing_description,
 )
+from models.database import update_user_metrics, set_final_action
 
 router = APIRouter(prefix="/api", tags=["marketplace"])
 
@@ -89,6 +90,7 @@ async def publish_listing(
     x_session_id: Optional[str] = Header(default="anonymous"),
 ):
     """Create a marketplace listing from assessment results."""
+    print(f"[PUBLISH_LISTING] Called with listing_type={request.listing_type}, assessment_id={request.assessment_id}, session={x_session_id}")
     snapshot = request.assessment_snapshot
 
     # Generate title and description from assessment data
@@ -128,6 +130,35 @@ async def publish_listing(
     }
 
     result = await create_listing(listing_data)
+
+    # Update sustainability metrics based on FINAL user action (not AI recommendation)
+    # This is the correct place: user has committed to a circular action.
+    if request.listing_type != 'exchange':
+        # Exchange metrics are handled separately on completion (Schedule Exchange)
+        final_action = request.listing_type  # resale/refurbished/donation/recycling
+        # Map listing_type to action key for UserMetrics
+        action_key_map = {'resale': 'resell', 'refurbished': 'refurbish', 'donation': 'donate', 'recycling': 'recycle'}
+        action_key = action_key_map.get(final_action, final_action)
+        try:
+            await update_user_metrics(
+                user_session_id=x_session_id,
+                action=action_key,
+                green_credits=snapshot.green_credits,
+                co2_savings_kg=snapshot.co2_savings_kg,
+            )
+            print(f"[METRICS] Metrics updated: action={action_key}, session={x_session_id}")
+        except Exception as e:
+            print(f"[ERROR] Metrics update failed: {e}")
+
+        # Update assessment record with final action (SEPARATE try block so metrics failure doesn't block this)
+        try:
+            if request.assessment_id and request.assessment_id != 'direct-exchange':
+                await set_final_action(request.assessment_id, action_key)
+                print(f"[FINAL_ACTION] Set final_action='{action_key}' on assessment={request.assessment_id}")
+            else:
+                print(f"[FINAL_ACTION] Skipped: assessment_id='{request.assessment_id}'")
+        except Exception as e:
+            print(f"[ERROR] set_final_action failed: {type(e).__name__}: {e}")
 
     return CreateListingResponse(
         listing_id=result["listing_id"],
@@ -209,7 +240,6 @@ async def explain_purchase_confidence(request: ExplainRequest):
 # Exchange Completion
 # ---------------------------------------------------------------------------
 
-from models.database import update_user_metrics
 from models.schemas import ActionRecommendation
 
 
@@ -273,18 +303,18 @@ async def complete_exchange(
     total_credits = credits_a + credits_b
     total_co2 = co2_a + co2_b
 
-    # Update user metrics
+    # Update user metrics (exchange-specific: no total_assessments increment)
+    from models.database import update_exchange_metrics
     try:
-        await update_user_metrics(
+        await update_exchange_metrics(
             user_session_id=x_session_id,
-            action="exchange",
             green_credits=total_credits,
             co2_savings_kg=total_co2,
         )
     except Exception:
         pass
 
-    # Write exchange record to Assessments table so it appears in Recent Assessments
+    # Write exchange activity record to Assessments table for Recent Assessments display
     from config.aws import get_assessments_table
     from models.database import generate_assessment_id
     from datetime import datetime, timezone
@@ -300,15 +330,11 @@ async def complete_exchange(
             "created_at": datetime.now(timezone.utc).isoformat(),
             "image_key": listing_a.get("image_key", ""),
             "product_category": f"{cat_a} ↔ {cat_b}",
-            "product_age_months": 0,
-            "original_price": Decimal("0"),
             "condition_grade": listing_a.get("condition_grade", "B"),
             "confidence_score": 100,
             "grade_explanation": f"Exchange scheduled between {cat_a} and {cat_b}.",
             "action_recommendation": "exchange",
             "action_reasoning": "Perfect match exchange — both products stay in circular use.",
-            "resale_value_min": Decimal("0"),
-            "resale_value_max": Decimal("0"),
             "green_credits": total_credits,
             "co2_savings_kg": Decimal(str(total_co2)),
             "buyer_personas": [],

@@ -97,6 +97,25 @@ async def save_assessment(
         )
 
 
+async def set_final_action(assessment_id: str, final_action: str) -> None:
+    """
+    Update an assessment record with the user's final circular action.
+
+    Called when a listing is created (the user commits to an action).
+    The assessment_id is the PK of the Assessments table.
+    """
+    table = get_assessments_table()
+    try:
+        table.update_item(
+            Key={"assessment_id": assessment_id},
+            UpdateExpression="SET final_action = :fa",
+            ExpressionAttributeValues={":fa": final_action},
+        )
+        print(f"[INFO] Set final_action={final_action} on assessment={assessment_id}")
+    except (BotoCoreError, ClientError) as e:
+        print(f"[WARN] Failed to set final_action: {e}")
+
+
 async def update_user_metrics(
     user_session_id: str,
     action,  # ActionRecommendation enum or str
@@ -159,6 +178,54 @@ async def update_user_metrics(
         print(f"[ERROR] Failed to update user metrics for session={user_session_id}: {type(e).__name__}: {e}")
 
 
+async def update_exchange_metrics(
+    user_session_id: str,
+    green_credits: int,
+    co2_savings_kg: float,
+) -> None:
+    """
+    Update metrics for an exchange completion.
+
+    Unlike update_user_metrics, this does NOT increment total_assessments
+    because an exchange is a marketplace action, not a new AI assessment.
+    Only updates: action_counts.exchange, green_credits, co2_saved.
+    """
+    table = get_usermetrics_table()
+
+    try:
+        table.update_item(
+            Key={"user_session_id": user_session_id},
+            UpdateExpression=(
+                "SET last_updated = :now, "
+                "action_counts = if_not_exists(action_counts, :empty_map)"
+            ),
+            ExpressionAttributeValues={
+                ":now": datetime.now(timezone.utc).isoformat(),
+                ":empty_map": {},
+            },
+        )
+
+        table.update_item(
+            Key={"user_session_id": user_session_id},
+            UpdateExpression=(
+                "ADD total_green_credits :credits, "
+                "total_co2_saved_kg :co2, "
+                "action_counts.#action :one"
+            ),
+            ExpressionAttributeNames={
+                "#action": "exchange",
+            },
+            ExpressionAttributeValues={
+                ":credits": green_credits,
+                ":one": 1,
+                ":co2": _to_decimal(co2_savings_kg),
+            },
+        )
+        print(f"[INFO] Exchange metrics updated for session={user_session_id}, credits={green_credits}")
+    except (BotoCoreError, ClientError) as e:
+        print(f"[ERROR] Failed to update exchange metrics: {type(e).__name__}: {e}")
+
+
 async def get_user_metrics(user_session_id: str) -> dict[str, Any]:
     """
     Retrieve aggregated metrics for a user from the UserMetrics table.
@@ -219,7 +286,9 @@ async def get_recent_assessments(
                 "assessment_id": item["assessment_id"],
                 "product_category": item.get("product_category", ""),
                 "condition_grade": item.get("condition_grade", ""),
-                "action_recommendation": item.get("action_recommendation", ""),
+                "action_recommendation": item.get("final_action") or item.get("action_recommendation", ""),
+                "recommended_action": item.get("action_recommendation", ""),
+                "final_action": item.get("final_action", ""),
                 "created_at": item.get("created_at", ""),
             }
             for item in response.get("Items", [])
@@ -260,7 +329,9 @@ async def get_recent_assessments(
                     "assessment_id": item["assessment_id"],
                     "product_category": item.get("product_category", ""),
                     "condition_grade": item.get("condition_grade", ""),
-                    "action_recommendation": item.get("action_recommendation", ""),
+                    "action_recommendation": item.get("final_action") or item.get("action_recommendation", ""),
+                    "recommended_action": item.get("action_recommendation", ""),
+                    "final_action": item.get("final_action", ""),
                     "created_at": item.get("created_at", ""),
                 }
                 for item in top_items

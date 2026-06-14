@@ -85,13 +85,13 @@ class AssessmentOrchestrator:
         )
         logger.info(
             f"[ORCHESTRATOR] Valuation Agent complete: "
-            f"base=${valuation_result.base_value:.2f}, "
+            f"base=₹{valuation_result.base_value:.2f}, "
             f"range={valuation_result.display}, "
             f"significant={valuation_result.has_significant_value}"
         )
         print(
-            f"[ORCHESTRATOR] ValuationResult: base=${valuation_result.base_value:.2f}, "
-            f"min=${valuation_result.resale_min:.2f}, max=${valuation_result.resale_max:.2f}, "
+            f"[ORCHESTRATOR] ValuationResult: base=₹{valuation_result.base_value:.2f}, "
+            f"min=₹{valuation_result.resale_min:.2f}, max=₹{valuation_result.resale_max:.2f}, "
             f"display={valuation_result.display}"
         )
 

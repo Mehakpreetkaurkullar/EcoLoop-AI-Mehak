@@ -57,9 +57,11 @@ export default function DashboardPage() {
   //
   // Formula: sum(action_count × weight) / sum(action_count × max_weight) × 100
   // This produces a 0-100% score where 100% = all products resold
-  const CIRC_WEIGHTS = { resell: 1.0, refurbish: 0.85, exchange: 1.0, donate: 0.70, recycle: 0.30 };
-  const weightedSum = Object.entries(actionDist).reduce((sum, [action, count]) => sum + count * (CIRC_WEIGHTS[action] || 0.3), 0);
-  const maxPossible = totalActions * 1.0; // maximum if all were resold
+  // Circularity Score — ALL circular actions are valid sustainability outcomes
+  // Weights reflect lifecycle extension value, but ALL are positive contributions
+  const CIRC_WEIGHTS = { resell: 1.0, refurbish: 0.90, exchange: 1.0, donate: 0.80, recycle: 0.60 };
+  const weightedSum = Object.entries(actionDist).reduce((sum, [action, count]) => sum + count * (CIRC_WEIGHTS[action] || 0.5), 0);
+  const maxPossible = totalActions * 1.0;
   const circRate = totalActions > 0 ? Math.round((weightedSum / maxPossible) * 100) : 0;
 
   // Category Breakdown: derived from recent_assessments (max 10 items)
@@ -185,8 +187,14 @@ export default function DashboardPage() {
             {recentAssessments.length > 0 ? (
               <div className="divide-y divide-gray-50">
                 {recentAssessments.map((item) => {
-                  const aCfg = ACTION_CONFIG[item.action_recommendation] || ACTION_CONFIG.recycle;
+                  // action_recommendation = final action (backend applies fallback: final_action || action_recommendation)
+                  // recommended_action = always the original AI recommendation
+                  const displayAction = item.action_recommendation;
+                  const aiRecommended = item.recommended_action || item.action_recommendation;
+                  const fCfg = ACTION_CONFIG[displayAction] || ACTION_CONFIG.recycle;
+                  const rCfg = ACTION_CONFIG[aiRecommended] || ACTION_CONFIG.recycle;
                   const gCfg = GRADE_CONFIG[item.condition_grade] || GRADE_CONFIG.C;
+                  const differs = displayAction !== aiRecommended;
                   return (
                     <div key={item.assessment_id} className="px-5 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3">
                       <div className="w-9 h-9 bg-gray-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">📦</div>
@@ -195,7 +203,12 @@ export default function DashboardPage() {
                         <p className="text-[10px] text-gray-400">{item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</p>
                       </div>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${gCfg.badge}`}>{item.condition_grade}</span>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${aCfg.badge}`}>{aCfg.icon} {aCfg.label}</span>
+                      <div className="flex flex-col items-end gap-0.5">
+                        {differs && (
+                          <span className="text-[9px] text-gray-400 line-through">{rCfg.icon} {rCfg.label}</span>
+                        )}
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${fCfg.badge}`}>{fCfg.icon} {fCfg.label}</span>
+                      </div>
                     </div>
                   );
                 })}

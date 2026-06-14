@@ -170,7 +170,7 @@ export default function UploadPage({ dashData, onAssessmentComplete }) {
   }
 
   // Weighted Circularity Score (same formula as Dashboard)
-  const CIRC_WEIGHTS = { resell: 1.0, refurbish: 0.85, exchange: 1.0, donate: 0.70, recycle: 0.30 };
+  const CIRC_WEIGHTS = { resell: 1.0, refurbish: 0.90, exchange: 1.0, donate: 0.80, recycle: 0.60 };
   const totalActions = dashData ? Object.values(dashData.action_distribution || {}).reduce((a, b) => a + b, 0) : 0;
   const weightedSum = dashData ? Object.entries(dashData.action_distribution || {}).reduce((sum, [action, count]) => sum + count * (CIRC_WEIGHTS[action] || 0.3), 0) : 0;
   const circRate = totalActions > 0 ? Math.round((weightedSum / (totalActions * 1.0)) * 100) : 0;

@@ -42,7 +42,7 @@ class ValuationResult:
     resale_min: float       # Minimum estimate (base × 0.85)
     resale_max: float       # Maximum estimate (base × 1.15)
     display: str            # Human-readable range string
-    has_significant_value: bool  # False when value < $1
+    has_significant_value: bool  # False when value < ₹1
 
 
 class ValuationAgent:
@@ -56,7 +56,7 @@ class ValuationAgent:
     - Apply condition grade multipliers
     - Cap value at zero (no negative values)
     - Compute min/max range (±15%)
-    - Flag products with no significant resale value (< $1)
+    - Flag products with no significant resale value (< ₹1)
     """
 
     def calculate(
@@ -80,7 +80,7 @@ class ValuationAgent:
         """
         logger.info(
             f"Calculating: grade={condition_grade}, category={product_category}, "
-            f"age={product_age_months}mo, price=${original_price:.2f}"
+            f"age={product_age_months}mo, price=₹{original_price:.2f}"
         )
 
         # Get depreciation rate (default 2% if category unknown)
@@ -108,7 +108,7 @@ class ValuationAgent:
         if has_significant_value:
             resale_min = round(base_value * 0.85, 2)
             resale_max = round(base_value * 1.15, 2)
-            display = f"${resale_min:.0f} - ${resale_max:.0f}"
+            display = f"₹{resale_min:.0f} - ₹{resale_max:.0f}"
         else:
             resale_min = 0.0
             resale_max = 0.0
@@ -123,7 +123,7 @@ class ValuationAgent:
         )
 
         logger.info(
-            f"Result: base=${result.base_value:.2f}, "
+            f"Result: base=₹{result.base_value:.2f}, "
             f"range={result.display}, "
             f"significant={result.has_significant_value}"
         )

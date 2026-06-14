@@ -146,10 +146,10 @@ function ListingCard({ listing, onClick, allListings, onOpenMatch }) {
 
   return (
     <div onClick={onClick} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all group cursor-pointer">
-      {/* Image */}
+      {/* Media */}
       <div className="relative h-44 bg-gray-200 overflow-hidden">
         {listing.image_url ? (
-          <img src={listing.image_url} alt={listing.title} className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300" />
+          <ListingMedia url={listing.image_url} imageKey={listing.image_key} alt={listing.title} className="w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">📦</div>
         )}
@@ -304,7 +304,7 @@ function ListingDetailModal({ listing, onClose, interestSent, onInterest, profil
         {/* Image */}
         <div className="relative h-64 bg-gray-200 rounded-t-3xl overflow-hidden">
           {listing.image_url ? (
-            <img src={listing.image_url} alt={listing.title} className="w-full h-full object-contain p-3" />
+            <ListingMedia url={listing.image_url} imageKey={listing.image_key} alt={listing.title} className="w-full h-full object-contain p-3" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-6xl text-gray-300">📦</div>
           )}
@@ -969,4 +969,31 @@ function ScheduleExchangeBtn({ parentListingId, matchListingId }) {
       {status === 'loading' ? '...' : 'Schedule'}
     </button>
   );
+}
+
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm'];
+
+function isVideoKey(imageKey) {
+  if (!imageKey) return false;
+  const lower = imageKey.toLowerCase();
+  return VIDEO_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
+function ListingMedia({ url, imageKey, alt, className }) {
+  if (isVideoKey(imageKey)) {
+    return (
+      <video
+        src={url}
+        className={className}
+        muted
+        autoPlay
+        loop
+        playsInline
+        controls={false}
+        onMouseEnter={(e) => { e.target.controls = true; }}
+        onMouseLeave={(e) => { e.target.controls = false; }}
+      />
+    );
+  }
+  return <img src={url} alt={alt} className={className} />;
 }

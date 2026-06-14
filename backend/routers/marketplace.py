@@ -150,14 +150,22 @@ async def publish_listing(
         except Exception as e:
             print(f"[ERROR] Metrics update failed: {e}")
 
-        # Update assessment record with final action (SEPARATE try block so metrics failure doesn't block this)
+        # Update assessment record with final action
         try:
             if request.assessment_id and request.assessment_id != 'direct-exchange':
                 await set_final_action(request.assessment_id, action_key)
                 print(f"[FINAL_ACTION] Set final_action='{action_key}' on assessment={request.assessment_id}")
-            else:
-                print(f"[FINAL_ACTION] Skipped: assessment_id='{request.assessment_id}'")
         except Exception as e:
+            print(f"[ERROR] set_final_action failed: {e}")
+    else:
+        # Exchange listing created — mark as pending (NO metrics update yet)
+        # Metrics only update on exchange completion (Schedule Exchange)
+        try:
+            if request.assessment_id and request.assessment_id != 'direct-exchange':
+                await set_final_action(request.assessment_id, "exchange_pending")
+                print(f"[FINAL_ACTION] Set final_action='exchange_pending' on assessment={request.assessment_id}")
+        except Exception as e:
+            print(f"[ERROR] set_final_action (exchange) failed: {e}")
             print(f"[ERROR] set_final_action failed: {type(e).__name__}: {e}")
 
     return CreateListingResponse(

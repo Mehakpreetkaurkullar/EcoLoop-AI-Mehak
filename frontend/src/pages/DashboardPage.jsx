@@ -7,6 +7,7 @@ const ACTION_CONFIG = {
   donate: { color: '#a855f7', badge: 'bg-purple-100 text-purple-800', icon: '🎁', label: 'Donate' },
   recycle: { color: '#22c55e', badge: 'bg-emerald-100 text-emerald-800', icon: '♻️', label: 'Recycle' },
   exchange: { color: '#6366f1', badge: 'bg-indigo-100 text-indigo-800', icon: '🔄', label: 'Exchange' },
+  exchange_pending: { color: '#6366f1', badge: 'bg-indigo-50 text-indigo-600 border border-indigo-200', icon: '🔄', label: 'Exchange (Pending)' },
 };
 
 const GRADE_CONFIG = {

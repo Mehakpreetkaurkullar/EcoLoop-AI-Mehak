@@ -3,6 +3,10 @@
     {
       "source": "/api/(.*)",
       "destination": "https://ecoloop-ai-2.onrender.com/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

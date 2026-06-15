@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://ecoloop-ai-y572.onrender.com/api/$1"
+      "destination": "https://ecoloop-ai-2.onrender.com/api/$1"
     }
   ]
 }
